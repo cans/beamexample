@@ -25,6 +25,8 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.SimpleFunction;
+import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -99,10 +101,19 @@ public class Exercise1 {
         // We declare the output type explicitly using withOutputType.
         // Use the following code to add the output type:
         //.withOutputType(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.integers()))
-        .apply(new ChangeMe<>() /* TODO: YOUR CODE GOES HERE */)
+//        .apply(MapElements.via((GameActionInfo info) -> {
+//                   return KV.of(field.extract(info), info.getScore()) ;
+//               }).withOutputType(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.integers())))
+              // Having an issue with the return value type inference with the Lambda.
+              // Using Java7 style "lambda".
+              .apply(MapElements.via(new SimpleFunction<GameActionInfo, KV<String, Integer>>() {
+                  public KV<String, Integer> apply(GameActionInfo info) {
+                      return KV.of(field.extract(info), info.getScore()) ;
+                  }
+              }))
         // Sum is a family of PTransforms for computing the sum of elements in a PCollection.
         // Select the appropriate method to compute the sum over each key.
-        .apply(new ChangeMe<>() /* TODO: YOUR CODE GOES HERE */);
+        .apply(Sum.integersPerKey());
       // [END EXERCISE 1]:
     }
   }
@@ -110,20 +121,21 @@ public class Exercise1 {
   /**
    * Run a batch pipeline.
    */
-  public static void main(String[] args) throws Exception {
-    // Begin constructing a pipeline configured by commandline flags.
-    ExerciseOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(ExerciseOptions.class);
-    Pipeline pipeline = Pipeline.create(options);
+  public static void main(String[] args) {
+      // Begin constructing a pipeline configured by commandline flags.
+      ExerciseOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(ExerciseOptions.class);
+      Pipeline pipeline = Pipeline.create(options);
 
-    pipeline
-        // Generate a bounded set of data.
-        .apply(new Input.BoundedGenerator())
-        // Extract and sum username/score pairs from the event data.
-        .apply("ExtractUserScore", new ExtractAndSumScore(KeyField.USER))
-        // Write the user and score to the "user_score" BigQuery table.
-        .apply(new Output.WriteUserScoreSums(options.getOutputPrefix()));
+      pipeline
+          // Generate a bounded set of data.
+          .apply(new Input.BoundedGenerator())
+          // Extract and sum username/score pairs from the event data.
+          .apply("ExtractUserScore", new ExtractAndSumScore(KeyField.USER))
+          // Write the user and score to the "user_score" BigQuery table.
+          .apply(new Output.WriteUserScoreSums(options.getOutputPrefix()));
 
-    // Run the batch pipeline.
-    pipeline.run();
+      // Run the batch pipeline.
+      pipeline.run();
   }
+
 }
